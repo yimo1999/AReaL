@@ -244,23 +244,28 @@ def _run_experiment(exp_cfg, expr_name, trial_name):
                 # that sequentially allocates nodes.
                 for i in range(n_worker_per_node):
                     _idx = node_id * n_worker_per_node + i
-                    worker = RayWorker.options(
-                        name=f"{worker_type}/{_idx}",
-                        num_cpus=sch.scheduling.cpu,
-                        # FIXME adapt npu
-                        resources={device: sch.scheduling.gpu},
-                        memory=sch.scheduling.mem * 1024**2,
-                        scheduling_strategy=PlacementGroupSchedulingStrategy(
-                            placement_group=placement_group,
-                            placement_group_bundle_index=node_id,
-                            placement_group_capture_child_tasks=True,
-                        ),
-                    ).remote(
+                    # FIXME. Determined resources via is_npu_available
+                    resource_params = {
+                        "name": f"{worker_type}/{_idx}",
+                        "num_cpus": sch.scheduling.cpu,
+                        "scheduling_strategy": PlacementGroupSchedulingStrategy(
+                                placement_group=placement_group,
+                                placement_group_bundle_index=node_id,
+                                placement_group_capture_child_tasks=True,
+                            )
+                    }
+                    if is_npu_available:
+                        resource_params["resources"] = {device: sch.scheduling.gpu}
+                    else:
+                        resource_params["num_gpus"] = sch.scheduling.gpu
+
+                    worker = RayWorker.options(**resource_params).remote(
                         args=exp_cfg,
                         worker_type=worker_type,
                         worker_cls=load_worker(worker_type),
                         kv_store_name=ray_kv_store_name,
                     )
+                    
                     workers.append(worker)
         else:
             # Schedule them with SPREAD strategy when
@@ -268,14 +273,18 @@ def _run_experiment(exp_cfg, expr_name, trial_name):
             # to save as much resource as possible on nodes for GPU workers.
             # 2. all workers when n_nodes = 1
             for _idx in range(sch.count):
-                worker = RayWorker.options(
-                    name=f"{worker_type}/{_idx}",
-                    num_cpus=sch.scheduling.cpu,
-                    #  FIXME adapt npu
-                    resources={device: sch.scheduling.gpu},
-                    memory=sch.scheduling.mem * 1024**2,
-                    scheduling_strategy="SPREAD",
-                ).remote(
+                # FIXME. Determined resources via is_npu_available
+                resource_params = {
+                    "name": f"{worker_type}/{_idx}",
+                    "num_cpus": sch.scheduling.cpu,
+                    "scheduling_strategy": "SPREAD"
+                }
+                if is_npu_available:
+                    resource_params["resources"] = {device: sch.scheduling.gpu}
+                else:
+                    resource_params["num_gpus"] = sch.scheduling.gpu
+
+                worker = RayWorker.options(**resource_params).remote(
                     args=exp_cfg,
                     worker_type=worker_type,
                     worker_cls=load_worker(worker_type),

@@ -98,7 +98,7 @@ actor:
       overlap_grad_reduce: true
       use_distributed_optimizer: true
   vllm:
-    model: /models/qwen3_1_7b
+    model: /sfs_turbo/models/qwen3_1_7b
     seed: 1234
     skip_tokenizer_init: false
     dtype: float16

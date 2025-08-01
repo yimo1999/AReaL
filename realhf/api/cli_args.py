@@ -263,7 +263,7 @@ class vLLMConfig:
 
     gpu_memory_utilization: float = 0.9
     # additional_engine_args: Dict = field(default_factory=dict)
-
+    enable_metrics: bool = True
     hybrid_train = False
 
 
@@ -281,7 +281,7 @@ class vLLMConfig:
 
         args: Dict = conf_as_dict(vllm_config)
         print(f"----vllm args:{args}")
-
+        args.pop("enable_metrics", None)
         host = "localhost"
         args = dict(
             host=host,

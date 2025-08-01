@@ -92,7 +92,7 @@ class vLLMAPIClient(LLMAPIClient):
                     if choices := data.get("choices"):
                         for choice in choices:
                             output = outputs[output_idx]
-                            tokens = choice["token_ids"]["tokens"]
+                            tokens = choice["logprobs"]["tokens"]
                             token_ids = [int(t.split(":")[1]) for t in tokens]
                             output.output_ids = [token_ids]
 

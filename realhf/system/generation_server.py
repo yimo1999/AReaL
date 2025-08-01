@@ -9,6 +9,7 @@ import requests
 
 from realhf.api.cli_args import SGLangConfig
 from realhf.api.cli_args import vLLMConfig
+from realhf.utils import is_npu_available
 from realhf.api.core.system_api import ExpStatus
 from realhf.api.core.system_api import GenerationServer as GenerationServerConfig
 from realhf.base import (
@@ -155,8 +156,7 @@ class GenerationServer(Worker):
 
         host_ip = network.gethostip()
         # FIXME adapt npu
-        # host = "localhost" if not config.backend_args.enable_metrics else host_ip
-        host = host_ip
+        host = "localhost" if not config.backend_args.enable_metrics else host_ip
 
         # NOTE: Ports returned by `find_multiple_free_ports` are unique,
         # but SGLang servers still encounter conflicts.
@@ -176,8 +176,11 @@ class GenerationServer(Worker):
         server_port = ports[0]
         nccl_port = ports[1]
 
-        #FIXME adapt npu
-        cmd = vLLMConfig.build_cmd(
+        #FIXME adapt npu. Determined rollout backend via NPU or GPU.
+        rolloutConfig = vLLMConfig if is_npu_available else SGLangConfig
+        
+
+        cmd = rolloutConfig.build_cmd(
             config.backend_args,
             config.model_path,
             tp_size=config.tp_size,

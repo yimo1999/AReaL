@@ -20,6 +20,7 @@ from realhf.api.core.model_api import (
     GenReqMeta,
 )
 from realhf.base import constants, logging, name_resolve, names
+from realhf.utils import is_npu_available
 
 logger = logging.getLogger(__name__)
 
@@ -116,34 +117,64 @@ class PartialRolloutManager:
         assert self.tokenizer.pad_token_id is not None
         assert self.tokenizer.eos_token_id is not None
         # Don't need to request updating weights
-        # FIXME adapt npu
-        async with vLLMAPIClient(
-            generate_url=f"{url}/v1/completions", update_weights_url=""
-        ) as api_client:
-            res = await api_client.async_add_generate_request(
-                APIGenerateInput(
-                    qid=qid,
-                    prompt_ids=prompt_ids,
-                    input_ids=input_ids,
-                    gconfig=gconfig,
-                    stop_token_ids=[
-                        self.tokenizer.pad_token_id,
-                        self.tokenizer.eos_token_id,
-                    ],
-                    return_logprob=True,
-                    version_start=version_start,
-                    prev_logprobs=prev_logprobs,
-                    metadata=dict(
-                        group_idx=group_idx,
-                        raw_gconfig=raw_gconfig,
-                        server_url=url,
-                        version=cur_server_version,
+        # FIXME adapt npu. Determined rolloutAPIClient via NPU or GPU
+        if is_npu_available:
+            async with vLLMAPIClient(
+                generate_url=f"{url}/v1/completions", update_weights_url=""
+            ) as api_client:
+                res = await api_client.async_add_generate_request(
+                    APIGenerateInput(
+                        qid=qid,
+                        prompt_ids=prompt_ids,
+                        input_ids=input_ids,
+                        gconfig=gconfig,
+                        stop_token_ids=[
+                            self.tokenizer.pad_token_id,
+                            self.tokenizer.eos_token_id,
+                        ],
+                        return_logprob=True,
+                        version_start=version_start,
+                        prev_logprobs=prev_logprobs,
+                        metadata=dict(
+                            group_idx=group_idx,
+                            raw_gconfig=raw_gconfig,
+                            server_url=url,
+                            version=cur_server_version,
+                        ),
                     ),
-                ),
-                stream=False,
-            )
-            res.version_end = [cur_server_version for _ in range(res.group_size)]
-            return res
+                    stream=False,
+                )
+                res.version_end = [cur_server_version for _ in range(res.group_size)]
+                return res
+        else:
+            async with SGLangAPIClient(
+                generate_url=f"{url}/generate", update_weights_url=""
+            ) as api_client:
+                res = await api_client.async_add_generate_request(
+                    APIGenerateInput(
+                        qid=qid,
+                        prompt_ids=prompt_ids,
+                        input_ids=input_ids,
+                        gconfig=gconfig,
+                        stop_token_ids=[
+                            self.tokenizer.pad_token_id,
+                            self.tokenizer.eos_token_id,
+                        ],
+                        return_logprob=True,
+                        version_start=version_start,
+                        prev_logprobs=prev_logprobs,
+                        metadata=dict(
+                            group_idx=group_idx,
+                            raw_gconfig=raw_gconfig,
+                            server_url=url,
+                            version=cur_server_version,
+                        ),
+                    ),
+                    stream=False,
+                )
+                res.version_end = [cur_server_version for _ in range(res.group_size)]
+                return res
+
 
     async def _issue_generation(
         self,

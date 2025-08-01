@@ -598,19 +598,26 @@ class RayController:
                     for _idx, (comm, sch) in enumerate(zip(_comms, _schedules)):
                         # Schedule jobs one-by-one to maintain the order on remote nodes.
                         # FIXME adapt npu
-                        job = ray.remote(
-                            num_cpus=sch.scheduling.cpu,
-                            resources={"NPU": sch.scheduling.gpu},
-                            memory=sch.scheduling.mem * 1024**2,
-                            name=f"{worker_type}/{_idx + i}",
-                        )(run_ray_worker).remote(
-                            worker_type,
-                            _idx + i,
-                            world_size,
-                            self.__experiment_name,
-                            self.__trial_name,
-                            comm,
-                        )
+                        resource_params = {
+                            "num_cpus": sch.scheduling.cpu,
+                            "memory": sch.scheduling.mem * 1024**2,
+                            "name": f"{worker_type}/{_idx + i}"
+                        }
+
+                        if is_npu_available:
+                            resource_params["resources"] = {"NPU": sch.scheduling.gpu}
+                        else:
+                            resource_params["num_gpus"] = sch.scheduling.gpu
+
+                        job = ray.remote(**resource_params)(run_ray_worker).remote(
+                                worker_type,
+                                _idx + i,
+                                world_size,
+                                self.__experiment_name,
+                                self.__trial_name,
+                                comm,
+                            )
+
                         try:
                             ray.get(job, timeout=0.1)
                         except ray.exceptions.GetTimeoutError:
