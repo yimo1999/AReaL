@@ -280,7 +280,6 @@ class vLLMConfig:
         from realhf.experiments.common.utils import asdict as conf_as_dict
 
         args: Dict = conf_as_dict(vllm_config)
-        print(f"----vllm args:{args}")
         args.pop("enable_metrics", None)
         host = "localhost"
         args = dict(
